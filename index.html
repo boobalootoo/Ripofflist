@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ripoff List Viewer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Custom font for a clean look */
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    /* Basic table styling for borders and spacing */
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      padding: 0.75rem; /* Tailwind's px-3, py-2 equivalent */
+      text-align: left;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center p-4 sm:p-6">
+  <div class="container mx-auto bg-white p-6 rounded-lg shadow-xl w-full max-w-4xl">
+    <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-800 mb-6 text-center">
+      Ripoff List
+    </h1>
+
+    <div id="loading-indicator" class="text-center text-blue-600 font-semibold text-lg py-4 hidden">
+      <svg class="animate-spin inline-block w-6 h-6 mr-2 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      Loading CSV data...
+    </div>
+
+    <div id="error-message" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative hidden" role="alert">
+      <strong class="font-bold">Error!</strong>
+      <span class="block sm:inline" id="error-text"></span>
+      <span class="absolute top-0 bottom-0 right-0 px-4 py-3">
+        <svg class="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" onclick="document.getElementById('error-message').classList.add('hidden');">
+          <title>Close</title>
+          <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/>
+        </svg>
+      </span>
+    </div>
+
+    <div class="overflow-x-auto rounded-lg border border-gray-200 shadow-md">
+      <table id="csv-table" class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          </tbody>
+      </table>
+    </div>
+
+    <p class="text-sm text-gray-500 mt-6 text-center">
+      Ensure `Ripofflist.csv` is in the same directory as this `index.html` file for proper loading.
+    </p>
+  </div>
+
+  <script>
+    // Ensure the DOM is fully loaded before running the script
+    document.addEventListener('DOMContentLoaded', () => {
+      const csvFileUrl = 'Ripofflist.csv'; // Path to your CSV file
+      const csvTable = document.getElementById('csv-table');
+      const tableHead = csvTable.querySelector('thead');
+      const tableBody = csvTable.querySelector('tbody');
+      const loadingIndicator = document.getElementById('loading-indicator');
+      const errorMessage = document.getElementById('error-message');
+      const errorText = document.getElementById('error-text');
+
+      /**
+       * Shows a given message element and sets its text content if applicable.
+       * @param {HTMLElement} element - The HTML element to show.
+       * @param {string} [message=''] - The text message to display (for errorText).
+       */
+      function showMessage(element, message = '') {
+        element.classList.remove('hidden');
+        if (element === errorText) {
+          errorText.textContent = message;
+        }
+      }
+
+      /**
+       * Hides a given message element.
+       * @param {HTMLElement} element - The HTML element to hide.
+       */
+      function hideMessage(element) {
+        element.classList.add('hidden');
+      }
+
+      // Display loading indicator before starting the fetch operation
+      showMessage(loadingIndicator);
+      hideMessage(errorMessage); // Ensure any previous error messages are hidden
+
+      // Fetch the CSV file
+      fetch(csvFileUrl)
+        .then(response => {
+          // Check if the network request was successful (status code 200-299)
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status} - Could not find or access '${csvFileUrl}'.`);
+          }
+          return response.text(); // Read the response body as plain text
+        })
+        .then(csvText => {
+          hideMessage(loadingIndicator); // Hide loading indicator on successful fetch
+
+          // Check if the CSV content is empty after trimming whitespace
+          if (!csvText.trim()) {
+            showMessage(errorMessage, 'The CSV file is empty or contains no data.');
+            return; // Stop further processing if the file is empty
+          }
+
+          // Split the CSV text into individual rows, then each row into cells
+          // .trim() removes leading/trailing whitespace from the whole text
+          // .split('\n') splits by newline to get rows
+          // .map(row => row.split(',')) splits each row by comma to get cells
+          const rows = csvText.trim().split('\n').map(row => row.split(','));
+
+          // Clear any existing content in the table head and body
+          tableHead.innerHTML = '';
+          tableBody.innerHTML = '';
+
+          // Populate the table header using the first row of CSV data
+          if (rows.length > 0) {
+            const headerRow = document.createElement('tr');
+            rows[0].forEach(cell => {
+              const th = document.createElement('th');
+              th.textContent = cell.trim(); // Trim whitespace from cell content
+              // Apply Tailwind classes for header styling
+              th.classList.add('px-6', 'py-3', 'text-left', 'text-xs', 'font-medium', 'text-gray-500', 'uppercase', 'tracking-wider');
+              headerRow.appendChild(th);
+            });
+            tableHead.appendChild(headerRow);
+
+            // Populate the table body with the remaining rows of CSV data
+            // Start from index 1 to skip the header row
+            for (let i = 1; i < rows.length; i++) {
+              const dataRow = document.createElement('tr');
+              rows[i].forEach(cell => {
+                const td = document.createElement('td');
+                td.textContent = cell.trim(); // Trim whitespace from cell content
+                // Apply Tailwind classes for body cell styling
+                td.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm', 'text-gray-900');
+                dataRow.appendChild(td);
+              });
+              tableBody.appendChild(dataRow);
+            }
+          }
+        })
+        .catch(err => {
+          // Handle any errors that occur during the fetch operation
+          hideMessage(loadingIndicator); // Hide loading indicator on error
+          showMessage(errorMessage, `Failed to load CSV file: ${err.message}`); // Display the error message
+          console.error('Error loading CSV:', err); // Log the error to the console for debugging
+        });
+    });
+  </script>
+</body>
+</html>
