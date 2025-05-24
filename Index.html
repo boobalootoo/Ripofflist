@@ -2,49 +2,124 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ripoff List</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      margin-top: 20px;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 8px;
-      text-align: left;
-    }
-    th {
-      background-color: #f2f2f2;
+    /* Custom styles for Inter font */
+    body {
+      font-family: 'Inter', sans-serif;
     }
   </style>
 </head>
-<body>
-  <h1>Ripoff List</h1>
-  <table id="csv-table"></table>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center p-4">
+  <div class="container mx-auto bg-white p-6 rounded-lg shadow-lg w-full max-w-4xl">
+    <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Ripoff List</h1>
+
+    <div id="loading-indicator" class="text-center text-blue-500 font-semibold hidden mb-4">
+      Loading CSV data...
+    </div>
+
+    <div id="error-message" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative hidden mb-4" role="alert">
+      <strong class="font-bold">Error!</strong>
+      <span class="block sm:inline" id="error-text">Failed to load CSV file. Please ensure 'Ripofflist.csv' is in the same directory and accessible.</span>
+    </div>
+
+    <div class="overflow-x-auto rounded-lg border border-gray-200">
+      <table id="csv-table" class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          </tbody>
+      </table>
+    </div>
+
+    <p class="text-sm text-gray-500 mt-6 text-center">
+      Make sure the `Ripofflist.csv` file is correctly placed in your GitHub repository, in the same directory as this `index.html` file.
+    </p>
+  </div>
 
   <script>
-    const csvFileUrl = 'Ripofflist.csv'; // Assumes it's in the same repo
+    document.addEventListener('DOMContentLoaded', () => {
+      const csvFileUrl = 'Ripofflist.csv'; // Assumes it's in the same repo
+      const csvTable = document.getElementById('csv-table');
+      const tableHead = csvTable.querySelector('thead');
+      const tableBody = csvTable.querySelector('tbody');
+      const loadingIndicator = document.getElementById('loading-indicator');
+      const errorMessage = document.getElementById('error-message');
+      const errorText = document.getElementById('error-text');
 
-    fetch(csvFileUrl)
-      .then(response => response.text())
-      .then(csvText => {
-        const rows = csvText.trim().split('\n').map(row => row.split(','));
-        const table = document.getElementById('csv-table');
-        rows.forEach((row, i) => {
-          const tr = document.createElement('tr');
-          row.forEach(cell => {
-            const td = document.createElement(i === 0 ? 'th' : 'td');
-            td.textContent = cell;
-            tr.appendChild(td);
-          });
-          table.appendChild(tr);
+      // Function to show a message (loading or error)
+      function showMessage(element, message = '') {
+        element.classList.remove('hidden');
+        if (element === errorText) {
+          errorText.textContent = message;
+        }
+      }
+
+      // Function to hide a message
+      function hideMessage(element) {
+        element.classList.add('hidden');
+      }
+
+      // Show loading indicator before fetch
+      showMessage(loadingIndicator);
+      hideMessage(errorMessage); // Hide any previous error messages
+
+      fetch(csvFileUrl)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status} - Could not find or access '${csvFileUrl}'.`);
+          }
+          return response.text();
+        })
+        .then(csvText => {
+          hideMessage(loadingIndicator); // Hide loading indicator on success
+
+          if (!csvText.trim()) {
+            showMessage(errorMessage);
+            errorText.textContent = 'The CSV file is empty or contains no data.';
+            return;
+          }
+
+          // Split CSV into rows and then cells
+          const rows = csvText.trim().split('\n').map(row => row.split(','));
+
+          // Clear existing table content before populating
+          tableHead.innerHTML = '';
+          tableBody.innerHTML = '';
+
+          // Populate table header
+          if (rows.length > 0) {
+            const headerRow = document.createElement('tr');
+            rows[0].forEach(cell => {
+              const th = document.createElement('th');
+              th.textContent = cell.trim();
+              th.classList.add('px-6', 'py-3', 'text-left', 'text-xs', 'font-medium', 'text-gray-500', 'uppercase', 'tracking-wider');
+              headerRow.appendChild(th);
+            });
+            tableHead.appendChild(headerRow);
+
+            // Populate table body
+            for (let i = 1; i < rows.length; i++) {
+              const dataRow = document.createElement('tr');
+              rows[i].forEach(cell => {
+                const td = document.createElement('td');
+                td.textContent = cell.trim();
+                td.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm', 'text-gray-900');
+                dataRow.appendChild(td);
+              });
+              tableBody.appendChild(dataRow);
+            }
+          }
+        })
+        .catch(err => {
+          hideMessage(loadingIndicator); // Hide loading indicator on error
+          showMessage(errorMessage); // Show error message
+          errorText.textContent = `Failed to load CSV file: ${err.message}`;
+          console.error('Error loading CSV:', err);
         });
-      })
-      .catch(err => {
-        document.body.innerHTML += '<p style="color:red;">Failed to load CSV file.</p>';
-        console.error(err);
-      });
+    });
   </script>
 </body>
 </html>
